@@ -1,0 +1,91 @@
+#-------------------------------------------------------------------------------------------------------------------------
+# 코드명    : im.R
+# 설명      : 이미지 자료 분석을 통한 파손부위 확인
+# 작성자    : 베가스
+# 일자      : 2014.03.12
+# 패키지    : EBImage
+#-------------------------------------------------------------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------------------------------------------------------
+# 0. 환경 설정 
+#-------------------------------------------------------------------------------------------------------------------------
+
+## 디렉토리 설정
+setwd("D://Rproject")
+
+## 패키지 불러오기
+source("RSC//biocLite.R")
+biocLite("EBImage")
+library(EBImage)
+
+#-------------------------------------------------------------------------------------------------------------------------
+# 1. 데이터 불러오기 
+#-------------------------------------------------------------------------------------------------------------------------
+
+## 이미지 데이터(jpg file) 불러오기
+image.file.name <- "파손차량"
+
+## Matrix 형태로 각 pixel의 명암값 저장됨
+r.ngimage <- readImage(paste0("DAT//", image.file.name, ".jpg"), "JPEG")
+
+## color 이미지의 경우, 3개의 프레임으로 구성되며, 이 중 한개 프레임을 선택
+ngimg <- ngimage <- r.ngimage[ , ncol(r.ngimage) : 1, 2] 
+
+## 원본이미지 display
+## 원본 이미지를 회색조로 저장(1/30의 scale로 명암 설정)
+image(ngimage, col = grey((0:30) / 30)) 
+savePlot(filename = paste("OUT//", image.file.name, "_original", sep = ""), type = "jpeg")
+
+## 분석대상 이미지 추출
+x11()
+## 이미지 분석을 위한 명암값의 상한 범위 설정
+outliers_U <- ngimg > mean(ngimg) + 2 * sd(ngimg) 
+image(outliers_U, col = grey((0:30) / 30))
+savePlot(filename = paste("OUT//", image.file.name, "_process1", sep = ""), type = "jpeg")
+
+x11()
+## 이미지 분석을 위한 명암값의 하한 범위 설정
+outliers_L <- ngimg < mean(ngimg) - 0.8 * sd(ngimg) 
+image(outliers_L, col = grey((0:30) / 30))
+savePlot(filename = paste("OUT//", image.file.name, "_process2", sep = ""), type = "jpeg")
+
+## 분석범위를 넘어서는 Pixel의 명암값은 NA 값 설정
+ngimage[which(outliers_L == 1)] <- NA
+ngimage[which(outliers_U == 1)] <- NA
+
+
+#-------------------------------------------------------------------------------------------------------------------------
+# 2. 파손부위 detect 및 display
+#-------------------------------------------------------------------------------------------------------------------------
+
+## 파손부위 detect
+detect.matrix <- c() ## 파손부위 위치를 나타내는 matrix 생성 
+cut.off <- var(as.vector(ngimage), na.rm = T)
+detect.row <- 32 ##행의 검색단위 설정(행은 32등분하여 분석하겠다는 의미)
+detect.col <- 32 ##열의 검색단위 설정(열은 32등분하여 분석하겠다는 의미)
+
+## 첫번째 기준: Non-NA값을 가지는 Pixel이 11개 이상인 검색단위 색출
+## 두번째 기준: 검색단위내 pixel의 분산이 cut.off 값 이상인 검색단위 색출
+for (i in 1:detect.row){
+	for (j in 1:detect.col){
+		if(sum(!is.na(as.vector(ngimage[(nrow(ngimage) / detect.row * (i - 1) + 1) : (nrow(ngimage) / detect.row * i), 
+      (ncol(ngimage) / detect.col * (j - 1) + 1) : (ncol(ngimage) / detect.col * j)]))) > 10){
+		  if(var(as.vector(ngimage[(nrow(ngimage) / detect.row * (i - 1) + 1) : (nrow(ngimage) / detect.row * i), 
+        (ncol(ngimage) / detect.col * (j - 1) + 1) : (ncol(ngimage) / detect.col * j)]), na.rm = T) > cut.off){
+			   detect.matrix <- rbind(detect.matrix, c(i, j))
+		  }
+		}
+	}
+} 
+
+## 파손부위 display
+image(ngimg, col = grey((0:30) / 30))
+
+for (i in 1 : nrow(detect.matrix)){
+	rect((detect.matrix[i, 1] - 1) / detect.row, (detect.matrix[i, 2] - 1) / detect.col, 
+        detect.matrix[i, 1] / detect.row, detect.matrix[i, 2] / detect.col, border = "red") ## 파손부위를 직사각형 형태로 표시함
+}
+
+## 이미지 데이터(파손부위 detect) 저장하기
+savePlot(filename = paste("OUT//", image.file.name, "result", sep = ""), type = "jpeg")

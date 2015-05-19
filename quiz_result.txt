@@ -1,0 +1,28 @@
+
+# Data Creation
+
+y <- rnorm(50)
+
+x <- matrix(rnorm(50*20000),50,20000)
+
+quiz_data <- data.frame(y=y, x)
+
+quiz_data$X1234 <- quiz_data$y + rnorm(50,0,0.01)
+
+
+
+# Solution
+
+x_var       <-  names(quiz_data)[-1]
+
+corr_result <-  data.frame(var_name = x_var, estimate = NA, p_value = NA)
+
+for(i in 1:length(x_var)) {
+
+corr_result$estimate[i] <- cor.test(quiz_data$y, quiz_data[,x_var[i]])$estimate
+corr_result$p_value[i] <- cor.test(quiz_data$y, quiz_data[,x_var[i]])$p.value
+}
+
+corr_result <- corr_result[order(corr_result$p_value),]
+
+head(corr_result)
