@@ -102,6 +102,7 @@ x.te <- UKM[-tr.idx, -6]
 # modeling
 m1 <- knn(x.tr, x.te, y[tr.idx], k = 3)
 
+
 # 예측
 table(m1, y[-tr.idx])
 mean(m1 != y[-tr.idx])
